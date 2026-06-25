@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImagineAI - SaaS Image Generator</title>
+    
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
+    <link rel="shortcut icon" href="/static/favicon.ico">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col justify-between">
+
+    <header class="border-b border-gray-800 p-4 backdrop-blur-md sticky top-0 bg-gray-900/80 z-50">
+        <div class="max-w-5xl mx-auto flex justify-between items-center">
+            <a href="/" class="flex items-center gap-3">
+                <img src="/static/logo.png" alt="ImagineAI Logo" class="h-8 w-auto object-contain">
+                <span class="text-xl font-bold tracking-wider hidden sm:block">Imagine<span class="text-indigo-500">AI</span></span>
+            </a>
+            <span class="bg-indigo-500/10 text-indigo-400 text-xs px-3 py-1 rounded-full border border-indigo-500/20">SaaS v1.0</span>
+        </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto w-full px-4 py-12 flex-grow">
+        <div class="text-center mb-10">
+            <h2 class="text-4xl font-bold mb-3">Convert Text into Beautiful Art</h2>
+            <p class="text-gray-400">Enter a descriptive prompt below to let the AI build high-fidelity visuals instantly.</p>
+        </div>
+
+        <div class="bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-700 mb-8">
+            <div class="flex flex-col md:flex-row gap-4">
+                <input type="text" id="prompt-input" placeholder="An astronaut riding a horse on Mars, cinematic lighting, 8k resolution..." 
+                       class="flex-grow bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition">
+                <button id="generate-btn" onclick="generateImage()" 
+                        class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-3 rounded-xl transition shadow-lg active:scale-95 whitespace-nowrap">
+                    Generate Image
+                </button>
+            </div>
+        </div>
+
+        <div id="output-container" class="hidden bg-gray-800 border border-gray-700 rounded-2xl p-4 flex flex-col items-center justify-center min-h-[350px]">
+            <div id="loading-spinner" class="hidden flex flex-col items-center gap-3">
+                <div class="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                <p class="text-gray-400 text-sm">AI is painting your thoughts... takes ~5-10s</p>
+            </div>
+            
+            <img id="generated-image" src="" alt="AI Generated Graphic" class="hidden rounded-xl max-w-full h-auto shadow-2xl border border-gray-700">
+            
+            <button id="download-btn" onclick="downloadAIImage()"
+               class="hidden mt-4 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition shadow-md flex items-center gap-2">
+                <span>Download Image</span> ↓
+            </button>
+        </div>
+    </main>
+
+    <footer class="text-center p-6 text-gray-600 text-sm border-t border-gray-800">
+        &copy; 2026 ImagineAI Platform. Powered by FastAPI.
+    </footer>
+
+    <script>
+        // Track the current URL globally for download tasks
+        let currentImageUrl = "";
+
+        async function generateImage() {
+            const promptInput = document.getElementById('prompt-input');
+            const generateBtn = document.getElementById('generate-btn');
+            const outputContainer = document.getElementById('output-container');
+            const loadingSpinner = document.getElementById('loading-spinner');
+            const generatedImage = document.getElementById('generated-image');
+            const downloadBtn = document.getElementById('download-btn');
+
+            const promptText = promptInput.value.trim();
+            if(!promptText) {
+                alert("Please write a text prompt first!");
+                return;
+            }
+
+            // Set UI elements to a processing state
+            outputContainer.classList.remove('hidden');
+            loadingSpinner.classList.remove('hidden');
+            generatedImage.classList.add('hidden');
+            downloadBtn.classList.add('hidden');
+            generateBtn.disabled = true;
+            generateBtn.innerText = "Processing...";
+
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: promptText })
+                });
+
+                const data = await response.json();
+
+                if(response.ok && data.image_url) {
+                    // Update global state and DOM sources
+                    currentImageUrl = data.image_url;
+                    generatedImage.src = data.image_url;
+                    
+                    // Display assets
+                    generatedImage.classList.remove('hidden');
+                    downloadBtn.classList.remove('hidden');
+                } else {
+                    alert("Error: " + (data.detail || "Failed to parse generation output"));
+                    outputContainer.classList.add('hidden');
+                }
+            } catch (error) {
+                console.error(error);
+                alert("An unexpected network error occurred.");
+                outputContainer.classList.add('hidden');
+            } finally {
+                // Revert interface targets back to original configurations
+                loadingSpinner.classList.add('hidden');
+                generateBtn.disabled = false;
+                generateBtn.innerText = "Generate Image";
+            }
+        }
+
+        // Handles cross-origin image retrieval and file execution pipelines
+        async function downloadAIImage() {
+            if (!currentImageUrl) return;
+            
+            const downloadBtn = document.getElementById('download-btn');
+            const originalText = downloadBtn.innerHTML;
+            
+            try {
+                downloadBtn.innerText = "Downloading...";
+                downloadBtn.disabled = true;
+
+                // Download the image as a structural blob
+                const response = await fetch(currentImageUrl);
+                const blob = await response.blob();
+                
+                // Mount image to local object memory spaces
+                const blobUrl = window.URL.createObjectURL(blob);
+                
+                // Create a virtual clicking pipeline to trigger native browser save windows
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = `imagineai-${Date.now()}.png`;
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // Clean browser memory instances
+                window.URL.revokeObjectURL(blobUrl);
+            } catch (error) {
+                console.error("Secure download intercept failed:", error);
+                // Fallback option: open image within an isolated viewer browser window if security boundaries prevent deep fetches
+                window.open(currentImageUrl, '_blank');
+            } finally {
+                downloadBtn.innerHTML = originalText;
+                downloadBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
